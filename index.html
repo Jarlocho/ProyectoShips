@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Encuentro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Personaje A (fijo en el centro) -->
+  <div id="charA">
+
+    <!-- Contenedor de capas para los ojos -->
+    <div id="charACapas">
+  <img id="pupilasA" src="personajeA/pupilas.png" alt="Pupilas">
+  <img id="cuerpoA" src="personajeA/cuerpo.png" alt="Manzana">
+</div>
+
+    <div id="bubble">
+      <span id="bubbleText">¿Darle a Naranja a Manzana?</span>
+      <div class="btns">
+        <button onclick="onSi()">Sí</button>
+        <button onclick="onNo()">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Personaje B (arrastrable) -->
+  <div id="charB">
+    <img src="personajeB/naranjaNormal.png" alt="Personaje B">
+  </div>
+
+  <!-- Cuadro de juntar -->
+  <div id="cuadroJuntar">
+    <span>¿Juntar a Manzana y Naranja?</span>
+    <div class="btns">
+      <button onclick="onJuntarSi()">Sí</button>
+      <button onclick="onJuntarNo()">No</button>
+    </div>
+  </div>
+
+  <!-- Imagen final del abrazo -->
+  <div id="abrazoFinal">
+    <img src="beso.jpg" alt="beso">
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

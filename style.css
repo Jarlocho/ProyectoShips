@@ -1,0 +1,181 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none; /* evita que se seleccione texto al arrastrar */
+}
+
+:root {
+  /* Tamaño de los personajes: proporcional a la pantalla,
+     con mínimo y máximo para que nunca quede ridículo */
+  --tamPersonaje: clamp(110px, 16vmin, 200px);
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #f0f0f0;
+  touch-action: none; /* evita scroll/zoom del navegador al arrastrar en celular */
+}
+
+
+/* ── Personaje A (centro, fijo) ── */
+#charA {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Contenedor de las dos capas (cuerpo + pupilas) */
+#charACapas {
+  position: relative;
+  width: var(--tamPersonaje);
+  overflow: hidden;
+}
+
+/* Cuerpo base de manzana */
+#cuerpoA {
+  width: 100%;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Pupilas encima del cuerpo, centradas por defecto.
+   Porcentajes = los px calibrados (top 43, left 22, width 124 sobre 150)
+   convertidos a proporción, así escalan con el personaje */
+#pupilasA {
+  position: absolute;
+  top: 24%;
+  left: 14.7%;
+  width: 82.7%;
+  pointer-events: none;
+  clip-path: inset(0px); /* recorta fuera de esta área */
+}
+
+/* ── Globo de texto ── */
+#bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 12px;
+  background: white;
+  border: 2px solid #333;
+  border-radius: 12px;
+  padding: 10px 16px;
+  white-space: nowrap;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
+/* Triángulo apuntando hacia abajo */
+#bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #333;
+}
+
+#bubble::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: white;
+  z-index: 1;
+}
+
+/* Botones dentro del globo */
+#bubble .btns {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#bubble button {
+  padding: 4px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ── Personaje B (arrastrable) ── */
+#charB {
+  position: absolute;
+  left: 75%;
+  top: 72%; /* en diagonal: en celular (pantalla angosta) da más distancia inicial */
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  display: none;
+}
+
+#charB img {
+  width: var(--tamPersonaje);
+  pointer-events: none;
+}
+
+#charB.visible {
+  display: block;
+}
+
+/* ── Cuadro de juntar ── */
+#cuadroJuntar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -220%); /* encima de manzana */
+  background: white;
+  border: 2px solid #333;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-family: sans-serif;
+  font-size: 14px;
+  text-align: center;
+  white-space: nowrap;
+  display: none; /* oculto por defecto */
+}
+
+#cuadroJuntar .btns {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#cuadroJuntar button {
+  padding: 4px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#cuadroJuntar.visible {
+  display: block;
+}
+
+/* ── Imagen final del abrazo ── */
+#abrazoFinal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+}
+
+#abrazoFinal img {
+  width: min(80vmin, 420px);
+}
+
+#abrazoFinal.visible {
+  display: block;
+}
