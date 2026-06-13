@@ -1,0 +1,26 @@
+{
+  "name": "Viva el Amor",
+  "short_name": "Viva el Amor",
+  "description": "Manzana y Naranja, una pequeña historia de amor.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffe6ee",
+  "theme_color": "#ff4d6d",
+  "icons": [
+    {
+      "src": "./icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
