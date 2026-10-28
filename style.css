@@ -10,7 +10,7 @@
 :root {
   /* Tamaño de los personajes: proporcional a la pantalla,
      con mínimo y máximo. Los dibujos son cuadrados. */
-  --tam: clamp(120px, 22vmin, 280px);
+  --tam: clamp(100px, 22vmin, 280px);
   --fondo: #eef3ff;
   --acento: #4f7cff;
 }

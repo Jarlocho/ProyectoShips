@@ -264,6 +264,7 @@ charB.addEventListener('lostpointercapture', soltar);
 
 // Coloca a Vic en (x, y) sin dejar que se salga de la pantalla
 function colocarB(x, y) {
+  if (!window.innerWidth || !window.innerHeight) return; // ventana aún sin tamaño
   const medio = tam() / 2;
   x = Math.min(Math.max(x, medio), window.innerWidth  - medio);
   y = Math.min(Math.max(y, medio), window.innerHeight - medio);
@@ -310,20 +311,42 @@ function getDistancia() {
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
-// Distancia máxima posible en la dirección actual de Vic
-// (del centro de Gojo hasta el borde de la ventana)
+// Hasta dónde puede llegar Vic en la dirección en la que está ahorita
+// (del centro de Gojo hasta donde Vic topa con la orilla de la pantalla).
+// En un celular vertical hay mucho menos espacio a los lados que arriba/abajo.
 function getDistanciaMaxima() {
   const a = centro(capasA), b = centro(charB);
   const dx = b.x - a.x, dy = b.y - a.y;
   const dist = Math.hypot(dx, dy);
   if (dist === 0) return Infinity;
 
-  let t = Infinity;
-  if (dx > 0) t = Math.min(t, (window.innerWidth  - a.x) / dx);
-  if (dx < 0) t = Math.min(t, -a.x / dx);
-  if (dy > 0) t = Math.min(t, (window.innerHeight - a.y) / dy);
-  if (dy < 0) t = Math.min(t, -a.y / dy);
-  return dist * t;
+  const medio = tam() / 2;
+  const minX = medio, maxX = window.innerWidth  - medio;
+  const minY = medio, maxY = window.innerHeight - medio;
+
+  let k = Infinity;
+  if (dx > 0) k = Math.min(k, (maxX - a.x) / dx);
+  if (dx < 0) k = Math.min(k, (minX - a.x) / dx);
+  if (dy > 0) k = Math.min(k, (maxY - a.y) / dy);
+  if (dy < 0) k = Math.min(k, (minY - a.y) / dy);
+  return dist * Math.max(k, 0);
+}
+
+// Umbrales de las emociones para la dirección actual.
+// Normalmente se usan las distancias fijas (K_*), pero si en esa dirección
+// no hay espacio suficiente, se reparten proporcionalmente para que TODAS
+// las emociones se puedan activar, sin importar si Vic va hacia los lados,
+// hacia arriba o hacia abajo.
+function umbrales() {
+  const t = tam();
+  const espacio = getDistanciaMaxima();
+  return {
+    cerca:  Math.min(K_CERCA * t, espacio * 0.40),
+    media:  Math.min(K_MEDIA * t, espacio * 0.62),
+    llorar: Math.min(distanciaInicial + K_LLORAR * t, espacio * 0.85),
+    // margen del globo de juntar: si casi no hay espacio, se hace más chico
+    margen: Math.min(K_MARGEN_JUNTAR * t, Math.max(0, (espacio - t) * 0.3))
+  };
 }
 
 function revisarVelocidad(x, y) {
@@ -348,28 +371,25 @@ function revisarDistancia() {
   if (distanciaInicial === null || terminado) return;
 
   const dist = getDistancia();
-  const t = tam();
+  const u = umbrales();
 
   // ── Globo de juntar: cuando los bordes están cerca ──
   const a = capasA.getBoundingClientRect();
   const b = charB.getBoundingClientRect();
-  const margen = t * K_MARGEN_JUNTAR;
-  const cerca = !(b.left   > a.right  + margen ||
-                  b.right  < a.left   - margen ||
-                  b.top    > a.bottom + margen ||
-                  b.bottom < a.top    - margen);
+  const cerca = !(b.left   > a.right  + u.margen ||
+                  b.right  < a.left   - u.margen ||
+                  b.top    > a.bottom + u.margen ||
+                  b.bottom < a.top    - u.margen);
   cuadroJuntar.classList.toggle('visible', cerca);
 
   // ── Gojo llora si Vic se aleja demasiado ──
-  // (nunca más del 80% del espacio disponible en esa dirección)
-  const umbralLlorar = Math.min(distanciaInicial + K_LLORAR * t, getDistanciaMaxima() * 0.8);
-  ponerA(dist > umbralLlorar ? 'llorando' : 'normal');
+  ponerA(dist > u.llorar ? 'llorando' : 'normal');
 
   // ── Vic, según la distancia (si no está molesta) ──
   if (estadoB === 'molesta') return;
-  if (dist <= K_CERCA * t)      ponerB('timida');
-  else if (dist <= K_MEDIA * t) ponerB('confundida');
-  else                          ponerB('normal');
+  if (dist <= u.cerca)      ponerB('timida');
+  else if (dist <= u.media) ponerB('confundida');
+  else                      ponerB('normal');
 }
 
 // ── Los ojos de Gojo siguen a Vic ──
