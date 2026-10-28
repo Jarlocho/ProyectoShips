@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Viva el Amor</title>
 
-  <!-- PWA -->
+  <!-- PWA (se puede instalar como app y funciona sin internet) -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ff4d6d">
+  <meta name="theme-color" content="#eef3ff">
   <link rel="icon" href="icono-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icono-192.png">
   <meta name="mobile-web-app-capable" content="yes">
@@ -19,46 +19,56 @@
 </head>
 <body>
 
-  <!-- Personaje A (fijo en el centro) -->
+  <!-- Pantalla de inicio: al tocarla se pone en pantalla completa -->
+  <div id="inicio" class="cargando">
+    <h1 id="inicioTitulo"></h1>
+    <p id="inicioTexto"></p>
+  </div>
+
+  <!-- Personaje del centro (fijo) -->
   <div id="charA">
-
-    <!-- Contenedor de capas para los ojos -->
     <div id="charACapas">
-  <img id="pupilasA" src="personajeA/pupilas.png" alt="Pupilas">
-  <img id="cuerpoA" src="personajeA/cuerpo.png" alt="Manzana">
-</div>
-
-    <div id="bubble">
-      <span id="bubbleText">¿Darle a Naranja a Manzana?</span>
-      <div class="btns">
-        <button onclick="onSi()">Sí</button>
-        <button onclick="onNo()">No</button>
-      </div>
+      <img id="ojosA"   class="capa" alt="" draggable="false">
+      <img id="cuerpoA" class="capa" alt="" draggable="false">
     </div>
   </div>
 
-  <!-- Personaje B (arrastrable) -->
-  <div id="charB">
-    <img src="personajeB/naranjaNormal.png" alt="Personaje B">
-  </div>
-
-  <!-- Cuadro de juntar -->
-  <div id="cuadroJuntar">
-    <span>¿Juntar a Manzana y Naranja?</span>
+  <!-- Globo de pregunta (encima del personaje del centro) -->
+  <div id="bubble" class="globo">
+    <span id="bubbleText"></span>
     <div class="btns">
-      <button onclick="onJuntarSi()">Sí</button>
-      <button onclick="onJuntarNo()">No</button>
+      <button id="btnSi"></button>
+      <button id="btnNo"></button>
     </div>
   </div>
 
-  <!-- Imagen final del abrazo -->
-  <div id="abrazoFinal">
-    <img src="beso.jpg" alt="beso">
+  <!-- Personaje movible (arrastrable) -->
+  <div id="charB">
+    <img id="imgB" class="capa" alt="" draggable="false">
   </div>
 
+  <!-- Globo de juntar -->
+  <div id="cuadroJuntar" class="globo">
+    <span id="juntarText"></span>
+    <div class="btns">
+      <button id="btnJuntarSi"></button>
+      <button id="btnJuntarNo"></button>
+    </div>
+  </div>
+
+  <!-- Final -->
+  <div id="final">
+    <img id="imgFinal" alt="" draggable="false">
+    <p id="mensajeFinal"></p>
+    <button id="btnOtraVez"></button>
+  </div>
+
+  <!-- Botón pequeño para volver a pantalla completa si se sale -->
+  <button id="btnPantallaCompleta" title="Pantalla completa" aria-label="Pantalla completa">⛶</button>
+
+  <script src="config.js"></script>
   <script src="script.js"></script>
 
-  <!-- Registro del Service Worker (funcionamiento sin internet) -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

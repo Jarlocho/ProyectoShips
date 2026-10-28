@@ -2,80 +2,123 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  user-select: none; /* evita que se seleccione texto al arrastrar */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 :root {
   /* Tamaño de los personajes: proporcional a la pantalla,
-     con mínimo y máximo para que nunca quede ridículo */
-  --tamPersonaje: clamp(110px, 16vmin, 200px);
+     con mínimo y máximo. Los dibujos son cuadrados. */
+  --tam: clamp(120px, 22vmin, 280px);
+  --fondo: #eef3ff;
+  --acento: #4f7cff;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
 }
 
 body {
-  width: 100vw;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
-  background: #f0f0f0;
+  background: var(--fondo);
   touch-action: none; /* evita scroll/zoom del navegador al arrastrar en celular */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #222;
 }
 
+/* Las capas de los personajes ocupan todo su cuadro */
+.capa {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
 
-/* ── Personaje A (centro, fijo) ── */
+/* ── Pantalla de inicio ── */
+#inicio {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--fondo);
+  cursor: pointer;
+  text-align: center;
+  padding: 24px;
+}
+
+#inicio h1 {
+  font-size: clamp(32px, 8vmin, 64px);
+  color: var(--acento);
+}
+
+#inicio p {
+  font-size: clamp(16px, 3.5vmin, 22px);
+  opacity: .75;
+  animation: latido 1.6s ease-in-out infinite;
+}
+
+#inicio.cargando { cursor: wait; }
+#inicio.cargando p { animation: none; }
+#inicio.oculto { display: none; }
+
+@keyframes latido {
+  0%, 100% { transform: scale(1);    opacity: .75; }
+  50%      { transform: scale(1.06); opacity: 1;   }
+}
+
+/* ── Personaje del centro (fijo) ── */
 #charA {
   position: absolute;
   left: 50%;
   top: 50%;
+  width: var(--tam);
+  height: var(--tam);
   transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
-/* Contenedor de las dos capas (cuerpo + pupilas) */
 #charACapas {
-  position: relative;
-  width: var(--tamPersonaje);
-  overflow: hidden;
-}
-
-/* Cuerpo base de manzana */
-#cuerpoA {
-  width: 100%;
-  display: block;
-  position: relative;
-  z-index: 1;
-}
-
-/* Pupilas encima del cuerpo, centradas por defecto.
-   Porcentajes = los px calibrados (top 43, left 22, width 124 sobre 150)
-   convertidos a proporción, así escalan con el personaje */
-#pupilasA {
   position: absolute;
-  top: 24%;
-  left: 14.7%;
-  width: 82.7%;
-  pointer-events: none;
-  clip-path: inset(0px); /* recorta fuera de esta área */
+  inset: 0;
 }
 
-/* ── Globo de texto ── */
-#bubble {
+/* Los ojos van DETRÁS del cuerpo y se asoman por los huecos */
+#ojosA   { z-index: 0; }
+#cuerpoA { z-index: 1; }
+
+/* ── Globos de texto (encima del personaje del centro) ── */
+.globo {
   position: absolute;
-  bottom: 100%;
   left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 12px;
+  top: calc(50% - var(--tam) / 2 - 14px);
+  transform: translate(-50%, -100%);
+  z-index: 20;
+  max-width: min(90vw, 360px);
+  width: max-content;
   background: white;
   border: 2px solid #333;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 10px 16px;
-  white-space: nowrap;
-  font-family: sans-serif;
-  font-size: 14px;
+  font-size: clamp(14px, 2.6vmin, 17px);
+  text-align: center;
+  display: none;
 }
 
-/* Triángulo apuntando hacia abajo */
-#bubble::after {
+.globo.visible { display: block; }
+
+/* Triangulito apuntando hacia abajo */
+.globo::after,
+.globo::before {
   content: '';
   position: absolute;
   top: 100%;
@@ -85,97 +128,106 @@ body {
   border-top-color: #333;
 }
 
-#bubble::before {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 7px solid transparent;
+.globo::before {
+  border-width: 7px;
   border-top-color: white;
   z-index: 1;
 }
 
-/* Botones dentro del globo */
-#bubble .btns {
+.btns {
   margin-top: 8px;
   display: flex;
   gap: 8px;
   justify-content: center;
 }
 
-#bubble button {
-  padding: 4px 14px;
-  font-size: 13px;
+.btns button,
+#btnOtraVez {
+  padding: 6px 16px;
+  font: inherit;
+  font-size: .92em;
   cursor: pointer;
+  border: 2px solid #333;
+  border-radius: 999px;
+  background: white;
 }
 
-/* ── Personaje B (arrastrable) ── */
+.btns button:first-child,
+#btnOtraVez {
+  background: var(--acento);
+  color: white;
+  border-color: var(--acento);
+}
+
+.btns button[hidden] { display: none; }
+
+/* ── Personaje movible ── */
 #charB {
   position: absolute;
   left: 75%;
-  top: 72%; /* en diagonal: en celular (pantalla angosta) da más distancia inicial */
+  top: 80%;
+  width: var(--tam);
+  height: var(--tam);
   transform: translate(-50%, -50%);
+  z-index: 10;
   cursor: grab;
   display: none;
+  touch-action: none;
 }
 
-#charB img {
-  width: var(--tamPersonaje);
-  pointer-events: none;
-}
+#charB.visible  { display: block; }
+#charB.agarrada { cursor: grabbing; }
 
-#charB.visible {
-  display: block;
-}
-
-/* ── Cuadro de juntar ── */
-#cuadroJuntar {
+/* ── Final ── */
+#final {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -220%); /* encima de manzana */
-  background: white;
-  border: 2px solid #333;
-  border-radius: 12px;
-  padding: 10px 16px;
-  font-family: sans-serif;
-  font-size: 14px;
-  text-align: center;
-  white-space: nowrap;
-  display: none; /* oculto por defecto */
-}
-
-#cuadroJuntar .btns {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  text-align: center;
 }
 
-#cuadroJuntar button {
-  padding: 4px 14px;
-  font-size: 13px;
+#final.visible { display: flex; }
+
+#imgFinal {
+  width: min(86vmin, 560px);
+  height: min(86vmin, 560px);
+  object-fit: contain;
+  max-height: 70vh;
+  animation: aparecer .6s ease-out;
+}
+
+#mensajeFinal {
+  font-size: clamp(16px, 3.2vmin, 22px);
+  max-width: 560px;
+}
+
+#mensajeFinal:empty { display: none; }
+
+@keyframes aparecer {
+  from { transform: scale(.85); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ── Botón de pantalla completa ── */
+#btnPantallaCompleta {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 50;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(0, 0, 0, .08);
+  font-size: 20px;
   cursor: pointer;
-}
-
-#cuadroJuntar.visible {
-  display: block;
-}
-
-/* ── Imagen final del abrazo ── */
-#abrazoFinal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   display: none;
 }
 
-#abrazoFinal img {
-  width: min(80vmin, 420px);
-}
-
-#abrazoFinal.visible {
-  display: block;
-}
+#btnPantallaCompleta.visible { display: block; }

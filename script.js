@@ -1,337 +1,386 @@
-// ── Referencias a elementos ──
-const charA        = document.getElementById('charA');
-const charB        = document.getElementById('charB');
-const bubble       = document.getElementById('bubble');
-const cuadroJuntar = document.getElementById('cuadroJuntar');
-const abrazoFinal  = document.getElementById('abrazoFinal');
+// ════════════════════════════════════════════════════════════
+//  Viva el Amor — lógica del juego
+//  (los nombres, textos y el arte se cambian en config.js)
+// ════════════════════════════════════════════════════════════
 
-const imgA    = document.getElementById('cuerpoA');
-const pupilasA = document.getElementById('pupilasA');
-const imgB    = charB.querySelector('img');
+// ── Elementos ──
+const $ = (id) => document.getElementById(id);
 
-// ── Rutas de imágenes ──
-const IMGS_A = {
-  normal:              'personajeA/cuerpo.png',
-  llorando:            'personajeA/manzanaLlorando.png',
-  llorandoPorAbandono: 'personajeA/llorandoPorAbandono.png'
-};
+const inicio       = $('inicio');
+const charA        = $('charA');
+const capasA       = $('charACapas');
+const cuerpoA      = $('cuerpoA');
+const ojosA        = $('ojosA');
+const charB        = $('charB');
+const imgB         = $('imgB');
+const bubble       = $('bubble');
+const bubbleText   = $('bubbleText');
+const btnSi        = $('btnSi');
+const btnNo        = $('btnNo');
+const cuadroJuntar = $('cuadroJuntar');
+const final        = $('final');
+const imgFinal     = $('imgFinal');
+const btnPC        = $('btnPantallaCompleta');
 
-const IMGS_B = {
-  normal:       'personajeB/naranjaNormal.png',
-  sacadaDePedo: 'personajeB/naranjaSacadaDePedo.png',
-  timida:       'personajeB/naranjaTimida.png',
-  molesta:      'personajeB/naranjaMolesta.png'
-};
+const T    = CONFIG.textos;
+const ARTE = CONFIG.arte;
 
-// ── Distancias como porcentaje del gameArea (0.0 a 1.0) ──
-// Así funcionan igual sin importar el tamaño de pantalla
-// Fracciones de la diagonal de la ventana (calibradas en 1920×1080),
-// así las distancias se sienten igual en celular y en laptop
-const DIAG_REF = Math.hypot(1920, 1080);
-const F_LLORAR = 350 / DIAG_REF;
-const F_MEDIA  = 300 / DIAG_REF;
-const F_CERCA  = 200 / DIAG_REF;
+// ── Aplicar textos y colores de config.js ──
+document.title = T.titulo;
+$('inicioTitulo').textContent = T.titulo;
+$('inicioTexto').textContent  = T.cargando;
+$('juntarText').textContent   = T.juntar;
+$('btnJuntarSi').textContent  = T.si;
+$('btnJuntarNo').textContent  = T.no;
+$('mensajeFinal').textContent = T.mensajeFinal || '';
+$('btnOtraVez').textContent   = T.jugarOtraVez;
+document.documentElement.style.setProperty('--fondo',  CONFIG.colores.fondo);
+document.documentElement.style.setProperty('--acento', CONFIG.colores.acento);
 
-// Diagonal actual de la ventana (se recalcula siempre, soporta resize/rotación)
-function diag() {
-  return Math.hypot(window.innerWidth, window.innerHeight);
+cuerpoA.alt = CONFIG.centro;
+imgB.alt    = CONFIG.movible;
+imgFinal.alt = `${CONFIG.centro} y ${CONFIG.movible}`;
+imgFinal.src = ARTE.final;
+
+// ── Distancias, en múltiplos del tamaño del personaje ──
+// Así se sienten igual en celular y en compu.
+const K_CERCA  = 1.3; // a esta distancia (centro a centro) Vic se pone tímida
+const K_MEDIA  = 2.0; // a esta distancia Vic se confunde
+const K_LLORAR = 2.0; // si se aleja esto MÁS que al inicio, Gojo llora
+const K_MARGEN_JUNTAR = 0.2; // perímetro invisible alrededor de Gojo para "juntar"
+
+// ── Velocidad a partir de la cual Vic se molesta ──
+const K_VELOCIDAD_MOLESTA = 0.0085; // tamaños de personaje por milisegundo
+const TIEMPO_MOLESTA = 180;         // ms seguidos a esa velocidad
+
+// ── Estado ──
+let estadoA = 'normal';   // normal | llorando | abandonado
+let estadoB = 'normal';   // normal | confundida | timida | molesta
+let distanciaInicial = null;
+let terminado = false;
+
+// ════════════════════════════════════════════════════════════
+//  Carga del arte y pantalla de inicio
+// ════════════════════════════════════════════════════════════
+
+function todasLasImagenes() {
+  return [
+    ...Object.values(ARTE.centro),
+    ...Object.values(ARTE.movible),
+    ARTE.final
+  ];
 }
 
-// ── Perímetro invisible alrededor de manzana para "juntar" ──
-const F_MARGEN_JUNTAR = 0.2; // fracción del tamaño del personaje
+function precargar(src) {
+  return new Promise((ok) => {
+    const img = new Image();
+    img.onload  = () => ok(true);
+    img.onerror = () => { console.warn('No se encontró la imagen:', src); ok(false); };
+    img.src = src;
+  });
+}
 
-// ── Velocidad a partir de la cual naranja se molesta ──
-const F_VELOCIDAD_MOLESTA = 1.5 / DIAG_REF; // proporcional a la pantalla
-const TIEMPO_MOLESTA = 150; // ms seguidos a esa velocidad para molestarse
+Promise.all(todasLasImagenes().map(precargar)).then(() => {
+  inicio.classList.remove('cargando');
+  $('inicioTexto').textContent = T.tocaParaEmpezar;
+  inicio.addEventListener('click', empezar, { once: true });
+});
 
-// ── Estados actuales ──
-let estadoA = 'normal';
-let estadoB = 'normal';
+function empezar() {
+  pedirPantallaCompleta();
+  inicio.classList.add('oculto');
+  reiniciar();
+}
 
-// ── Distancia inicial entre A y B (se guarda cuando aparece naranja) ──
-let distanciaInicial = null;
+// ════════════════════════════════════════════════════════════
+//  Pantalla completa
+// ════════════════════════════════════════════════════════════
 
-// ── Variables para calcular velocidad de naranja ──
-let posAnteriorX = null;
-let posAnteriorY = null;
-let tiempoAnterior = null;
-let tiempoRapido = 0; // ms acumulados moviéndose rápido
+const puedePantallaCompleta =
+  !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+
+function enPantallaCompleta() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement) ||
+         window.matchMedia('(display-mode: fullscreen)').matches ||
+         window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true;
+}
+
+function pedirPantallaCompleta() {
+  if (enPantallaCompleta()) return;
+  const el = document.documentElement;
+  try {
+    const p = el.requestFullscreen
+      ? el.requestFullscreen({ navigationUI: 'hide' })
+      : el.webkitRequestFullscreen && el.webkitRequestFullscreen();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) { /* el navegador no lo permite; no pasa nada */ }
+}
+
+function actualizarBotonPC() {
+  const mostrar = puedePantallaCompleta && !enPantallaCompleta() && inicio.classList.contains('oculto');
+  btnPC.classList.toggle('visible', mostrar);
+}
+
+btnPC.addEventListener('click', pedirPantallaCompleta);
+document.addEventListener('fullscreenchange', actualizarBotonPC);
+document.addEventListener('webkitfullscreenchange', actualizarBotonPC);
+
+// ════════════════════════════════════════════════════════════
+//  Flujo del juego
+// ════════════════════════════════════════════════════════════
+
+function reiniciar() {
+  terminado = false;
+  estadoA = 'normal';
+  estadoB = 'normal';
+  distanciaInicial = null;
+
+  cuerpoA.src = ARTE.centro.cuerpo;
+  ojosA.src   = ARTE.centro.ojos;
+  ojosA.style.display = 'block';
+  ojosA.style.transform = '';
+  imgB.src = ARTE.movible.normal;
+
+  charA.style.display = '';
+  charB.style.display = '';
+  charB.classList.remove('visible');
+  charB.style.left = '';
+  charB.style.top  = '';
+
+  final.classList.remove('visible');
+  cuadroJuntar.classList.remove('visible');
+
+  mostrarPregunta(T.pregunta, true);
+  actualizarBotonPC();
+}
+
+function mostrarPregunta(texto, conNo) {
+  bubbleText.textContent = texto;
+  btnSi.textContent = conNo ? T.si : T.siOtraVez;
+  btnNo.textContent = T.no;
+  btnNo.hidden = !conNo;
+  bubble.classList.add('visible');
+}
+
+btnSi.addEventListener('click', () => {
+  bubble.classList.remove('visible');
+
+  // Si estaba abandonado, vuelve a la normalidad
+  estadoA = 'normal';
+  cuerpoA.src = ARTE.centro.cuerpo;
+  ojosA.style.display = 'block';
+
+  charB.classList.add('visible');
+  limitarDentroDePantalla();
+  distanciaInicial = getDistancia();
+  moverOjos();
+});
+
+btnNo.addEventListener('click', () => {
+  bubble.classList.remove('visible');
+  estadoA = 'abandonado';
+  cuerpoA.src = ARTE.centro.abandonado;
+  ojosA.style.display = 'none';
+
+  // Después de un ratito, le da otra oportunidad
+  setTimeout(() => {
+    if (estadoA === 'abandonado') mostrarPregunta(T.otraOportunidad, false);
+  }, 2500);
+});
+
+$('btnJuntarSi').addEventListener('click', () => {
+  terminado = true;
+  charA.style.display = 'none';
+  charB.style.display = 'none';
+  cuadroJuntar.classList.remove('visible');
+  final.classList.add('visible');
+});
+
+$('btnJuntarNo').addEventListener('click', () => {
+  cuadroJuntar.classList.remove('visible');
+});
+
+$('btnOtraVez').addEventListener('click', reiniciar);
+
+// ════════════════════════════════════════════════════════════
+//  Arrastrar (mouse y dedo, con Pointer Events)
+// ════════════════════════════════════════════════════════════
+
+let dragging = false;
+let offX = 0, offY = 0;
+let posAnteriorX = null, posAnteriorY = null, tiempoAnterior = null;
+let tiempoRapido = 0;
 let timeoutMolesta = null;
 
-// ── Botones del globo ──
-function onSi() {
-  bubble.style.display = 'none';
-  charB.classList.add('visible');
-
-  // Guardar la distancia inicial justo cuando naranja aparece
-  distanciaInicial = getDistancia();
+function tam() {
+  return capasA.getBoundingClientRect().width;
 }
 
-function onNo() {
-  bubble.style.display = 'none';
-  imgA.src = IMGS_A.llorandoPorAbandono;
-}
-
-// ── Botones del cuadro de juntar ──
-function onJuntarSi() {
-  // Ocultar ambos personajes y mostrar el abrazo
-  charA.style.display        = 'none';
-  charB.style.display        = 'none';
-  cuadroJuntar.style.display = 'none';
-  abrazoFinal.classList.add('visible');
-}
-
-function onJuntarNo() {
-  // Cerrar el cuadro y dejar que sigan jugando
-  cuadroJuntar.classList.remove('visible');
-}
-
-// ── Variables del drag ──
-let dragging = false;
-let offX = 0;
-let offY = 0;
-
-// ── Drag con mouse ──
-charB.addEventListener('mousedown', (e) => {
+charB.addEventListener('pointerdown', (e) => {
+  if (terminado) return;
+  e.preventDefault();
   dragging = true;
-  const rect = charB.getBoundingClientRect();
-  offX = e.clientX - rect.left - rect.width / 2;
-  offY = e.clientY - rect.top  - rect.height / 2;
-  charB.style.cursor = 'grabbing';
+  charB.setPointerCapture(e.pointerId);
+  charB.classList.add('agarrada');
+
+  const r = charB.getBoundingClientRect();
+  offX = e.clientX - (r.left + r.width / 2);
+  offY = e.clientY - (r.top  + r.height / 2);
+
   posAnteriorX = e.clientX;
   posAnteriorY = e.clientY;
   tiempoAnterior = performance.now();
   tiempoRapido = 0;
+  if (timeoutMolesta) clearTimeout(timeoutMolesta);
 });
 
-document.addEventListener('mousemove', (e) => {
+charB.addEventListener('pointermove', (e) => {
   if (!dragging) return;
-  charB.style.left      = (e.clientX - offX) + 'px';
-  charB.style.top       = (e.clientY - offY) + 'px';
-  charB.style.transform = 'translate(-50%, -50%)';
+  e.preventDefault();
+  colocarB(e.clientX - offX, e.clientY - offY);
   revisarVelocidad(e.clientX, e.clientY);
   revisarDistancia();
-  moverPupilas();
+  moverOjos();
 });
 
-document.addEventListener('mouseup', () => {
+function soltar() {
+  if (!dragging) return;
   dragging = false;
-  charB.style.cursor = 'grab';
-  posAnteriorX = null;
-  posAnteriorY = null;
-  tiempoAnterior = null;
+  charB.classList.remove('agarrada');
+  posAnteriorX = posAnteriorY = tiempoAnterior = null;
   tiempoRapido = 0;
+
   // Al soltar, espera 1 segundo y vuelve a la emoción por distancia
   timeoutMolesta = setTimeout(() => {
-    if (estadoB === 'molesta') {
-      estadoB = 'normal';
-      imgB.src = IMGS_B.normal; // resetea la imagen por si la distancia ya es "normal"
-    }
+    if (estadoB === 'molesta') ponerB('normal');
     revisarDistancia();
   }, 1000);
+}
+
+charB.addEventListener('pointerup', soltar);
+charB.addEventListener('pointercancel', soltar);
+charB.addEventListener('lostpointercapture', soltar);
+
+// Coloca a Vic en (x, y) sin dejar que se salga de la pantalla
+function colocarB(x, y) {
+  const medio = tam() / 2;
+  x = Math.min(Math.max(x, medio), window.innerWidth  - medio);
+  y = Math.min(Math.max(y, medio), window.innerHeight - medio);
+  charB.style.left = x + 'px';
+  charB.style.top  = y + 'px';
+}
+
+function limitarDentroDePantalla() {
+  if (!charB.classList.contains('visible')) return;
+  const r = charB.getBoundingClientRect();
+  colocarB(r.left + r.width / 2, r.top + r.height / 2);
+}
+
+window.addEventListener('resize', () => {
+  limitarDentroDePantalla();
+  moverOjos();
+  actualizarBotonPC();
 });
 
-// ── Drag con touch (celular) ──
-charB.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  const t = e.touches[0];
-  const rect = charB.getBoundingClientRect();
-  offX = t.clientX - rect.left - rect.width / 2;
-  offY = t.clientY - rect.top  - rect.height / 2;
-  dragging = true;
-  posAnteriorX = t.clientX;
-  posAnteriorY = t.clientY;
-  tiempoAnterior = performance.now();
-  tiempoRapido = 0;
-}, { passive: false });
+// ════════════════════════════════════════════════════════════
+//  Emociones
+// ════════════════════════════════════════════════════════════
 
-document.addEventListener('touchmove', (e) => {
-  if (!dragging) return;
-  e.preventDefault();
-  const t = e.touches[0];
-  charB.style.left      = (t.clientX - offX) + 'px';
-  charB.style.top       = (t.clientY - offY) + 'px';
-  charB.style.transform = 'translate(-50%, -50%)';
-  revisarVelocidad(t.clientX, t.clientY);
-  revisarDistancia();
-  moverPupilas();
-}, { passive: false });
+function ponerB(estado) {
+  if (estadoB === estado) return;
+  estadoB = estado;
+  imgB.src = ARTE.movible[estado];
+}
 
-document.addEventListener('touchend', () => {
-  dragging = false;
-  posAnteriorX = null;
-  posAnteriorY = null;
-  tiempoAnterior = null;
-  tiempoRapido = 0;
-  timeoutMolesta = setTimeout(() => {
-    if (estadoB === 'molesta') {
-      estadoB = 'normal';
-      imgB.src = IMGS_B.normal;
-    }
-    revisarDistancia();
-  }, 1000);
-});
+function ponerA(estado) {
+  if (estadoA === estado) return;
+  estadoA = estado;
+  cuerpoA.src = estado === 'llorando' ? ARTE.centro.llorando : ARTE.centro.cuerpo;
+  ojosA.style.display = estado === 'normal' ? 'block' : 'none';
+}
 
-// ── Distancia máxima posible en la dirección actual de naranja ──
-// (del centro de manzana hasta el borde de la ventana, pasando por naranja)
+function centro(el) {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+function getDistancia() {
+  const a = centro(capasA), b = centro(charB);
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+// Distancia máxima posible en la dirección actual de Vic
+// (del centro de Gojo hasta el borde de la ventana)
 function getDistanciaMaxima() {
-  const rA = charA.getBoundingClientRect();
-  const rB = charB.getBoundingClientRect();
-
-  const ax = rA.left + rA.width  / 2;
-  const ay = rA.top  + rA.height / 2;
-  const dx = (rB.left + rB.width  / 2) - ax;
-  const dy = (rB.top  + rB.height / 2) - ay;
-
+  const a = centro(capasA), b = centro(charB);
+  const dx = b.x - a.x, dy = b.y - a.y;
   const dist = Math.hypot(dx, dy);
   if (dist === 0) return Infinity;
 
-  // ¿cuántas veces puedo extender el vector (dx,dy) antes de tocar un borde?
   let t = Infinity;
-  if (dx > 0) t = Math.min(t, (window.innerWidth  - ax) / dx);
-  if (dx < 0) t = Math.min(t, -ax / dx);
-  if (dy > 0) t = Math.min(t, (window.innerHeight - ay) / dy);
-  if (dy < 0) t = Math.min(t, -ay / dy);
-
+  if (dx > 0) t = Math.min(t, (window.innerWidth  - a.x) / dx);
+  if (dx < 0) t = Math.min(t, -a.x / dx);
+  if (dy > 0) t = Math.min(t, (window.innerHeight - a.y) / dy);
+  if (dy < 0) t = Math.min(t, -a.y / dy);
   return dist * t;
 }
 
-// ── Calcular distancia entre A y B ──
-function getDistancia() {
-  const rA = charA.getBoundingClientRect();
-  const rB = charB.getBoundingClientRect();
-
-  const ax = rA.left + rA.width  / 2;
-  const ay = rA.top  + rA.height / 2;
-  const bx = rB.left + rB.width  / 2;
-  const by = rB.top  + rB.height / 2;
-
-  return Math.hypot(bx - ax, by - ay);
-}
-
-// ── Revisar velocidad y poner naranja molesta si va muy rápido ──
 function revisarVelocidad(x, y) {
   const ahora = performance.now();
-
-  if (posAnteriorX === null || tiempoAnterior === null) {
-    posAnteriorX = x;
-    posAnteriorY = y;
-    tiempoAnterior = ahora;
+  if (posAnteriorX === null) {
+    posAnteriorX = x; posAnteriorY = y; tiempoAnterior = ahora;
     return;
   }
-
   const dt = ahora - tiempoAnterior;
   if (dt <= 0) return;
 
-  // Velocidad real en px/ms (independiente de la frecuencia de eventos)
   const velocidad = Math.hypot(x - posAnteriorX, y - posAnteriorY) / dt;
-  posAnteriorX = x;
-  posAnteriorY = y;
-  tiempoAnterior = ahora;
+  posAnteriorX = x; posAnteriorY = y; tiempoAnterior = ahora;
 
-  // Solo se molesta si el movimiento rápido se mantiene un rato
-  if (velocidad > F_VELOCIDAD_MOLESTA * diag()) {
-    tiempoRapido += dt;
-  } else {
-    tiempoRapido = 0;
-  }
+  if (velocidad > K_VELOCIDAD_MOLESTA * tam()) tiempoRapido += dt;
+  else tiempoRapido = 0;
 
-  if (tiempoRapido >= TIEMPO_MOLESTA) {
-    if (timeoutMolesta) clearTimeout(timeoutMolesta);
-
-    if (estadoB !== 'molesta') {
-      estadoB = 'molesta';
-      imgB.src = IMGS_B.molesta;
-    }
-  }
+  if (tiempoRapido >= TIEMPO_MOLESTA) ponerB('molesta');
 }
 
-// ── Mover pupilas hacia naranja ──
-const F_PUPILA = 10 / 150; // movimiento máximo como fracción del tamaño del personaje
-
-function moverPupilas() {
-  // Si manzana está llorando o abandonada, ocultar pupilas
-  if (estadoA !== 'normal') {
-    pupilasA.style.display = 'none';
-    return;
-  }
-  pupilasA.style.display = 'block';
-
-  const rA = document.getElementById('charACapas').getBoundingClientRect();
-  const rB = charB.getBoundingClientRect();
-
-  const ax = rA.left + rA.width  / 2;
-  const ay = rA.top  + rA.height / 2;
-  const bx = rB.left + rB.width  / 2;
-  const by = rB.top  + rB.height / 2;
-
-  // Ángulo hacia naranja
-  const angulo = Math.atan2(by - ay, bx - ax);
-
-  // Mover pupilas en esa dirección dentro del radio máximo
-  // (proporcional al tamaño actual del personaje)
-  const maxPupila = rA.width * F_PUPILA;
-  const dx = Math.cos(angulo) * maxPupila;
-  const dy = Math.sin(angulo) * maxPupila;
-
-  pupilasA.style.transform = `translate(${dx}px, ${dy}px)`;
-}
-
-// ── Revisar distancia y cambiar imágenes si hace falta ──
 function revisarDistancia() {
-  if (distanciaInicial === null) return;
+  if (distanciaInicial === null || terminado) return;
 
   const dist = getDistancia();
+  const t = tam();
 
-  // Distancias de hoy según el tamaño actual de la ventana
-  const dLlorar = F_LLORAR * diag();
-  const dMedia  = F_MEDIA  * diag();
-  const dCerca  = F_CERCA  * diag();
-
-  // ── Cuadro de juntar: perímetro invisible alrededor de manzana ──
-  // Se activa cuando los BORDES de ambos están cerca,
-  // sin importar de qué lado llegue naranja
-  const a = document.getElementById('charACapas').getBoundingClientRect();
+  // ── Globo de juntar: cuando los bordes están cerca ──
+  const a = capasA.getBoundingClientRect();
   const b = charB.getBoundingClientRect();
-  const margen = a.width * F_MARGEN_JUNTAR; // proporcional al personaje
+  const margen = t * K_MARGEN_JUNTAR;
   const cerca = !(b.left   > a.right  + margen ||
                   b.right  < a.left   - margen ||
                   b.top    > a.bottom + margen ||
                   b.bottom < a.top    - margen);
+  cuadroJuntar.classList.toggle('visible', cerca);
 
-  if (cerca) {
-    cuadroJuntar.classList.add('visible');
-  } else {
-    cuadroJuntar.classList.remove('visible');
-  }
+  // ── Gojo llora si Vic se aleja demasiado ──
+  // (nunca más del 80% del espacio disponible en esa dirección)
+  const umbralLlorar = Math.min(distanciaInicial + K_LLORAR * t, getDistanciaMaxima() * 0.8);
+  ponerA(dist > umbralLlorar ? 'llorando' : 'normal');
 
-  // ── Manzana (A) ──
-  // Umbral: el fijo de siempre, pero nunca mayor al 80% del espacio
-  // disponible en esa dirección (si no, en vertical nunca se alcanza)
-  const umbralLlorar = Math.min(
-    distanciaInicial + dLlorar,
-    getDistanciaMaxima() * 0.8
-  );
-
-  if (dist > umbralLlorar && estadoA !== 'llorando') {
-    estadoA = 'llorando';
-    imgA.src = IMGS_A.llorando;
-  } else if (dist <= umbralLlorar && estadoA !== 'normal') {
-    estadoA = 'normal';
-    imgA.src = IMGS_A.normal;
-  }
-
-  // ── Naranja (B) — solo si no está molesta ──
+  // ── Vic, según la distancia (si no está molesta) ──
   if (estadoB === 'molesta') return;
+  if (dist <= K_CERCA * t)      ponerB('timida');
+  else if (dist <= K_MEDIA * t) ponerB('confundida');
+  else                          ponerB('normal');
+}
 
-  if (dist <= dCerca && estadoB !== 'timida') {
-    estadoB = 'timida';
-    imgB.src = IMGS_B.timida;
-  } else if (dist > dCerca && dist <= dMedia && estadoB !== 'sacadaDePedo') {
-    estadoB = 'sacadaDePedo';
-    imgB.src = IMGS_B.sacadaDePedo;
-  } else if (dist > dMedia && estadoB !== 'normal') {
-    estadoB = 'normal';
-    imgB.src = IMGS_B.normal;
+// ── Los ojos de Gojo siguen a Vic ──
+function moverOjos() {
+  if (estadoA !== 'normal' || !charB.classList.contains('visible')) {
+    ojosA.style.transform = '';
+    return;
   }
+  const a = centro(capasA), b = centro(charB);
+  const angulo = Math.atan2(b.y - a.y, b.x - a.x);
+  const max = tam() * CONFIG.movimientoOjos;
+  ojosA.style.transform =
+    `translate(${Math.cos(angulo) * max}px, ${Math.sin(angulo) * max}px)`;
 }

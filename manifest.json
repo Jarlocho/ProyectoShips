@@ -1,14 +1,15 @@
 {
   "name": "Viva el Amor",
   "short_name": "Viva el Amor",
-  "description": "Manzana y Naranja, una pequeña historia de amor.",
+  "description": "Gojo y Vic, una pequeña historia de amor.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "any",
-  "background_color": "#ffe6ee",
-  "theme_color": "#ff4d6d",
+  "background_color": "#eef3ff",
+  "theme_color": "#eef3ff",
   "icons": [
     {
       "src": "./icono-192.png",
