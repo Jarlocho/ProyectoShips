@@ -44,10 +44,12 @@ imgFinal.src = ARTE.final;
 
 // ── Distancias, en múltiplos del tamaño del personaje ──
 // Así se sienten igual en celular y en compu.
-const K_CERCA  = 1.3; // a esta distancia (centro a centro) Vic se pone tímida
-const K_MEDIA  = 2.0; // a esta distancia Vic se confunde
-const K_LLORAR = 2.0; // si se aleja esto MÁS que al inicio, Gojo llora
-const K_MARGEN_JUNTAR = 0.2; // perímetro invisible alrededor de Gojo para "juntar"
+// Orden, de cerca a lejos: juntar → tímida → confundida → normal → Gojo llora
+const K_JUNTAR = 1.15; // aún más cerca que tímida: sale "¿Juntar a Gojo y Vic?"
+const K_CERCA  = 1.5;  // a esta distancia (centro a centro) Vic se pone tímida
+const K_MEDIA  = 2.2;  // hasta esta distancia Vic está confundida
+const K_LLORAR = 2.0;  // si se aleja esto MÁS que al inicio, Gojo llora
+const K_ESPACIO_COMPLETO = 3.0; // espacio (en tamaños de personaje) para usar las distancias completas
 
 // ── Velocidad a partir de la cual Vic se molesta ──
 const K_VELOCIDAD_MOLESTA = 0.0085; // tamaños de personaje por milisegundo
@@ -280,6 +282,7 @@ function limitarDentroDePantalla() {
 
 window.addEventListener('resize', () => {
   limitarDentroDePantalla();
+  revisarDistancia();
   moverOjos();
   actualizarBotonPC();
 });
@@ -333,20 +336,48 @@ function getDistanciaMaxima() {
 }
 
 // Umbrales de las emociones para la dirección actual.
-// Normalmente se usan las distancias fijas (K_*), pero si en esa dirección
-// no hay espacio suficiente, se reparten proporcionalmente para que TODAS
-// las emociones se puedan activar, sin importar si Vic va hacia los lados,
-// hacia arriba o hacia abajo.
+// Si en esa dirección hay espacio de sobra, se usan las distancias normales.
+// Si no (por ejemplo, a los lados en un celular vertical), TODAS se encogen
+// en la misma proporción. Así el orden siempre es el mismo en cualquier
+// dirección y pantalla: juntar → tímida → confundida → normal → Gojo llora.
 function umbrales() {
   const t = tam();
   const espacio = getDistanciaMaxima();
-  return {
-    cerca:  Math.min(K_CERCA * t, espacio * 0.40),
-    media:  Math.min(K_MEDIA * t, espacio * 0.62),
-    llorar: Math.min(distanciaInicial + K_LLORAR * t, espacio * 0.85),
-    // margen del globo de juntar: si casi no hay espacio, se hace más chico
-    margen: Math.min(K_MARGEN_JUNTAR * t, Math.max(0, (espacio - t) * 0.3))
-  };
+  const s = Math.min(1, espacio / (K_ESPACIO_COMPLETO * t));
+  // Lo cercano (tímida y juntar) se encoge menos, para que no haga falta
+  // poner a Vic encima de Gojo; lo lejano se acomoda en el espacio que sobra.
+  const sCerca = Math.max(s, 0.6);
+  const juntar = K_JUNTAR * t * sCerca;
+  const cerca  = K_CERCA  * t * sCerca;
+  const llorarBase = Math.min(distanciaInicial + K_LLORAR * t, espacio * 0.85);
+  const media  = Math.max(K_MEDIA * t * s, (cerca + llorarBase) / 2);
+  const llorar = Math.max(llorarBase, media + 1);
+  return { juntar, cerca, media, llorar };
+}
+
+// Coloca el globo de "juntar" donde no tape a ninguno de los dos:
+// arriba de la pareja si cabe, si no, abajo.
+function colocarGloboJuntar() {
+  const a = capasA.getBoundingClientRect();
+  const b = charB.getBoundingClientRect();
+  const arriba = Math.min(a.top, b.top);
+  const abajo  = Math.max(a.bottom, b.bottom);
+  const izq = Math.min(a.left, b.left), der = Math.max(a.right, b.right);
+  const alto  = cuadroJuntar.offsetHeight;
+  const ancho = cuadroJuntar.offsetWidth;
+  const sep = 14;
+
+  const cabeArriba = arriba - sep - alto >= 8;
+  const cabeAbajo  = abajo + sep + alto <= window.innerHeight - 8;
+  const ponerAbajo = !cabeArriba && cabeAbajo;
+  const y = ponerAbajo ? abajo + sep : arriba - sep;
+
+  let x = (izq + der) / 2;
+  x = Math.min(Math.max(x, ancho / 2 + 8), window.innerWidth - ancho / 2 - 8);
+
+  cuadroJuntar.classList.toggle('abajo', ponerAbajo);
+  cuadroJuntar.style.left = x + 'px';
+  cuadroJuntar.style.top  = y + 'px';
 }
 
 function revisarVelocidad(x, y) {
@@ -373,23 +404,20 @@ function revisarDistancia() {
   const dist = getDistancia();
   const u = umbrales();
 
-  // ── Globo de juntar: cuando los bordes están cerca ──
-  const a = capasA.getBoundingClientRect();
-  const b = charB.getBoundingClientRect();
-  const cerca = !(b.left   > a.right  + u.margen ||
-                  b.right  < a.left   - u.margen ||
-                  b.top    > a.bottom + u.margen ||
-                  b.bottom < a.top    - u.margen);
-  cuadroJuntar.classList.toggle('visible', cerca);
-
   // ── Gojo llora si Vic se aleja demasiado ──
   ponerA(dist > u.llorar ? 'llorando' : 'normal');
 
   // ── Vic, según la distancia (si no está molesta) ──
-  if (estadoB === 'molesta') return;
-  if (dist <= u.cerca)      ponerB('timida');
-  else if (dist <= u.media) ponerB('confundida');
-  else                      ponerB('normal');
+  if (estadoB !== 'molesta') {
+    if (dist <= u.cerca)      ponerB('timida');
+    else if (dist <= u.media) ponerB('confundida');
+    else                      ponerB('normal');
+  }
+
+  // ── Globo de juntar: solo cuando Vic ya está tímida y se acerca un poco más ──
+  const juntar = estadoB === 'timida' && dist <= u.juntar;
+  cuadroJuntar.classList.toggle('visible', juntar);
+  if (juntar) colocarGloboJuntar();
 }
 
 // ── Los ojos de Gojo siguen a Vic ──

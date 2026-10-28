@@ -134,6 +134,28 @@ body {
   z-index: 1;
 }
 
+/* El globo de juntar lo acomoda script.js arriba (o abajo) de la pareja */
+#cuadroJuntar {
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -100%);
+}
+
+#cuadroJuntar.abajo {
+  transform: translate(-50%, 0);
+}
+
+/* Si va abajo, el triangulito apunta hacia arriba */
+#cuadroJuntar.abajo::after,
+#cuadroJuntar.abajo::before {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+}
+
+#cuadroJuntar.abajo::after  { border-bottom-color: #333; }
+#cuadroJuntar.abajo::before { border-bottom-color: white; }
+
 .btns {
   margin-top: 8px;
   display: flex;
